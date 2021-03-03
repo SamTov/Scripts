@@ -6,17 +6,17 @@ This repository will store some scripts that I write during my work that can per
 
 ## Scripts
 Here I will briefly review each of the scripts as well as where to find them.
-### General
+#### General
 * box_calculator.py will return the side length of a cubic box of a given density of atoms that you gave input. It will
 do the same for a spherical box
 
-### LAMMPS
+#### LAMMPS
 * LAMMPS_Install.sh is bash script that allows one to install LAMMPS using cmake with most of its packages. Some of the user
 packages are missing but can be very easily added. If you have any troubles make an issue and I can add it for you. Note that
 this script is designed to be run on a cluster with a package manager. If you are installing on a local system, the module 
 load commands at the start of the script may not be necessary, or can be converted into paths for compilers and other libraries. 
 
-### VASP
+#### VASP
 * generate_vasp_potcar.py is a python script that takes several potcar files and returns a single, concatenated file. This will
 avoid any errors that might come out of an OS interpreting the format of the files poorly.
 * generate_vasp_poscar.py is a python script that will collect an xyz coordinate file and build a single poscar file with
