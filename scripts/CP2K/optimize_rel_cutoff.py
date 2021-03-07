@@ -147,8 +147,9 @@ class CutoffOptimizer:
         Updates the class state.
         """
         self.calculator.inp = f"&MGRID"\
-                              f"NGRIDS {item}"\
+                              f"REL_CUTOFF {item}"\
                               f"&END MGRID"
+
         self.atoms.calc = self.calculator  # attach the calculator
         self._run_scf_minimization()  # run the calculation
 
