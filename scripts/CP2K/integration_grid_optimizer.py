@@ -51,7 +51,7 @@ class IntegrationGridOptimizer:
             MGRID updated object for easier updating of properties.
     """
 
-    def __init__(self, start=None, stop: Union[float, str] = 1600, atoms: ase.Atoms = None, template_file: str = None,
+    def __init__(self, start=None, stop: Union[dict, str] = 1600, atoms: ase.Atoms = None, template_file: str = None,
                  tolerance: float = 0.002, cwd: str = './'):
         """
         Constructor for the cutoff optimizer class
@@ -60,7 +60,7 @@ class IntegrationGridOptimizer:
         ----------
         start : dict
                 Starting values to use in the analysis for the cutoff, rel_cutoff and ngrid optimization
-        stop : Union[float, str]
+        stop : Union[dict, str]
                 Stop value to use in the analysis. If a float, the cutoff values will be taken between start and top, if
                 the string auto is given, an automatic optimization method is implemented to find the optimal cutoff.
         template_file : str
@@ -135,9 +135,9 @@ class IntegrationGridOptimizer:
         -------
         Updates the class
         """
-        self.loop_range['Cutoff'] = np.linspace(self.start['Cutoff'], self.stop, 10, dtype=int)
-        self.loop_range['Ngrids'] = np.linspace(self.start['Ngrids'], self.stop, 4, dtype=int)
-        self.loop_range['Rel_cutoff'] = np.linspace(self.start['Rel_cutoff'], self.stop, 10, dtype=int)
+        self.loop_range['Cutoff'] = np.linspace(self.start['Cutoff'], self.stop['Cutoff'], 10, dtype=int)
+        self.loop_range['Ngrids'] = np.linspace(self.start['Ngrids'], self.stop['Ngrids'], 4, dtype=int)
+        self.loop_range['Rel_cutoff'] = np.linspace(self.start['Rel_cutoff'], self.stop['Rel_cutoff'], 10, dtype=int)
 
     def _get_force_file(self):
         """
