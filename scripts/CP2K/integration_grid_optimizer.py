@@ -51,8 +51,8 @@ class IntegrationGridOptimizer:
             MGRID updated object for easier updating of properties.
     """
 
-    def __init__(self, start=None, stop: Union[dict, str] = 1600, atoms: ase.Atoms = None, template_file: str = None,
-                 tolerance: float = 0.002, cwd: str = './'):
+    def __init__(self, start=None, stop: Union[dict, str] = None, atoms: ase.Atoms = None, template_file: str = None,
+            tolerance: float = 0.002, cwd: str = './', project_name: str = 'optimization'):
         """
         Constructor for the cutoff optimizer class
 
@@ -75,18 +75,27 @@ class IntegrationGridOptimizer:
                 The delta value at which the cutoff should be considered converged.
         cwd : str
                 Directory in which the analysis should run and files should be stored.
+        project_name : str
+                Name of the project.
         """
         if start is None:
             start = {'Cutoff': 100, 'Ngrids': 5, 'Rel_cutoff': 60}
+        if stop is None:
+            stop = {'Cutoff': 1500, 'Ngrids': 8, 'Rel_cutoff': 120}
         self.start = start
         self.stop = stop
         self.atoms = atoms
         self.template_file = template_file
         self.tolerance = tolerance
         self.cwd = cwd
+        self.project_name = project_name
 
         self.calculator = CP2K()
-        self.force_eval = CP2K().CP2K_INPUT.FORCE_EVAL_add()
+        self.calculator.project_name = self.project_name
+        self.calculator.working_directory = self.cwd
+        self.calculator.parse(self.template_file)
+        self.force_eval = self.calculator.CP2K_INPUT.FORCE_EVAL_list[0]
+        self.force_eval.PRINT.FORCES.Section_parameters="ON"
         self.m_grid = self.force_eval.DFT.MGRID
         self.loop_range = {}
         self.force_array = {}
@@ -95,6 +104,7 @@ class IntegrationGridOptimizer:
         self.optimized_rel_cutoff: float
         self.optimized_n_grids: float
 
+        
         # Run checks
         if type(stop) is str:
             self._temp_operation_check()
@@ -136,8 +146,8 @@ class IntegrationGridOptimizer:
         Updates the class
         """
         self.loop_range['Cutoff'] = np.linspace(self.start['Cutoff'], self.stop['Cutoff'], 10, dtype=int)
-        self.loop_range['Ngrids'] = np.linspace(self.start['Ngrids'], self.stop['Ngrids'], 4, dtype=int)
         self.loop_range['Rel_cutoff'] = np.linspace(self.start['Rel_cutoff'], self.stop['Rel_cutoff'], 10, dtype=int)
+        self.loop_range['Ngrids'] = np.linspace(self.start['Ngrids'], self.stop['Ngrids'], 4, dtype=int)
 
     def _get_force_file(self):
         """
@@ -241,6 +251,7 @@ class IntegrationGridOptimizer:
         Updates the state of the self.calculator object
         """
         for item in updater:
+            print(item)
             self.m_grid.__dict__[item] = updater[item]
 
     def _perform_energy_force_calculation(self):
@@ -281,7 +292,7 @@ class IntegrationGridOptimizer:
                 A dictionary with the property to be optimized as well as the new value for this property.
                 e.g. {'Cutoff': 550}
 
-        Returns
+        Retn
         -------
         Updates the class state.
         """
