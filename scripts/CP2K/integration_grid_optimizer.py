@@ -14,7 +14,7 @@ from pycp2k import CP2K
 from typing import Union, TextIO
 import sys
 import glob
-
+import re
 
 class IntegrationGridOptimizer:
     """
@@ -95,7 +95,7 @@ class IntegrationGridOptimizer:
         self.calculator.working_directory = self.cwd
         self.calculator.parse(self.template_file)
         self.force_eval = self.calculator.CP2K_INPUT.FORCE_EVAL_list[0]
-        self.force_eval.PRINT.FORCES.Section_parameters="ON"
+        self.force_eval.PRINT.FORCES.Section_parameters = "ON"
         self.m_grid = self.force_eval.DFT.MGRID
         self.loop_range = {}
         self.force_array = {}
@@ -103,7 +103,6 @@ class IntegrationGridOptimizer:
         self.optimized_cutoff: float
         self.optimized_rel_cutoff: float
         self.optimized_n_grids: float
-
         
         # Run checks
         if type(stop) is str:
@@ -159,13 +158,9 @@ class IntegrationGridOptimizer:
                 Returns the path to the forces file so that it can be read. If none found, will print an error and end
                 the program
         """
-        force_file = None
+        force_file = f"{self.project_name}.out"
         files = glob.glob(f"{self.cwd}/*.xyz")
-        for item in files:
-            if 'frc' in item:
-                force_file = item
-
-        if force_file is None:
+        if force_file not in files:
             print("There is no force file to be analyzed, something is likely wrong with your cp2k input")
             sys.exit(1)
 
@@ -184,17 +179,19 @@ class IntegrationGridOptimizer:
         -------
         Energy value for that configuration : float
         """
-        energy_index = None
-        energy_line = f_object.readline().split(',')
-        for i in range(len(energy_line)):
-            if 'E =' in energy_line[i]:
-                energy_index = int(i)
+        energy = None
+        pattern = "Total FORCE_EVAL"
+        for line in f_object:
+            if re.search(pattern, line):
+                energy = float(line.split()[-1])
 
-        if energy_index is None:
-            print("No energy value found")
+        if energy is None:
+            print("No energy value found - Are you sure the input file was correct? Check the optimization.out file "
+                  "for more details.")
             sys.exit(1)
         else:
-            return float(energy_line[energy_index].split()[2])
+            f_object.seek(0)  # return to the start of the file.
+            return energy
 
     @staticmethod
     def _read_forces(f_object: TextIO, n_atoms: int):
@@ -213,9 +210,22 @@ class IntegrationGridOptimizer:
         mean force value as a float : float
         """
         force = 0.0
-        for i in range(n_atoms):
-            raw_data = np.array(f_object.readline().split()[1:]).astype(float)
-            force += np.linalg.norm(raw_data)
+        pattern_1 = "# Atom   Kind   Element          X              Y              Z"
+        pattern_2 = "SUM OF ATOMIC FORCES"
+
+        for i, line, in enumerate(f_object):
+            if re.search(pattern_1, line):
+                start = i + 1
+            elif re.search(pattern_2, line):
+                stop = i - 1
+        f_object.seek(0)
+        for i, line in enumerate(f_object):
+            if i < start:
+                continue
+            elif start <= i <= stop:
+                force += np.linalg.norm(np.array(line.split())[3:].astype(float))
+            else:
+                break
 
         return force/n_atoms
 
@@ -292,7 +302,7 @@ class IntegrationGridOptimizer:
                 A dictionary with the property to be optimized as well as the new value for this property.
                 e.g. {'Cutoff': 550}
 
-        Retn
+        Returns
         -------
         Updates the class state.
         """
