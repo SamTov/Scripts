@@ -339,7 +339,6 @@ class IntegrationGridOptimizer:
         os.remove(f"{self.cwd}/{self.project_name}.inp")
         os.remove(f"{self.cwd}/{self.project_name}.out")
 
-
     def _check_progress(self, optimized_parameter: str):
         """
         Check the progress of the analysis at run time and end it if convergence is reached
@@ -391,6 +390,7 @@ class IntegrationGridOptimizer:
                 continue
             else:
                 self._update_property({'Cutoff': self.loop_range['Cutoff'][-2]})
+                self.optimized_cutoff = self.loop_range['cutoff'][-2]
                 break
 
     def _run_rel_cutoff_optimization(self):
@@ -407,6 +407,7 @@ class IntegrationGridOptimizer:
                 continue
             else:
                 self._update_property({'Rel_cutoff': self.loop_range['Rel_cutoff'][-2]})
+                self.optimized_rel_cutoff = self.loop_range['Rel_cutoff'][-2]
                 break
 
     def _run_n_grids_optimization(self):
@@ -423,6 +424,7 @@ class IntegrationGridOptimizer:
                 continue
             else:
                 self._update_property({'Ngrids': self.loop_range['Ngrids'][-2]})
+                self.optimized_n_grids = self.loop_range['Ngrids'][-2]
                 break
 
     def _set_defaults_parameters(self):
