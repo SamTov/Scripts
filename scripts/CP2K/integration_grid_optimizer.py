@@ -15,6 +15,7 @@ from typing import Union, TextIO
 import sys
 import glob
 import re
+import os
 
 class IntegrationGridOptimizer:
     """
@@ -98,8 +99,8 @@ class IntegrationGridOptimizer:
         self.force_eval.PRINT.FORCES.Section_parameters = "ON"
         self.m_grid = self.force_eval.DFT.MGRID
         self.loop_range = {}
-        self.force_array = {}
-        self.energy_array = {}
+        self.force_array = {'Cutoff': [], 'Ngrids': [], 'Rel_cutoff': []}
+        self.energy_array = {'Cutoff': [], 'Ngrids': [], 'Rel_cutoff': []}
         self.optimized_cutoff: float
         self.optimized_rel_cutoff: float
         self.optimized_n_grids: float
@@ -159,10 +160,6 @@ class IntegrationGridOptimizer:
                 the program
         """
         force_file = f"{self.project_name}.out"
-        files = glob.glob(f"{self.cwd}/*.xyz")
-        if force_file not in files:
-            print("There is no force file to be analyzed, something is likely wrong with your cp2k input")
-            sys.exit(1)
 
         return force_file
 
@@ -226,8 +223,32 @@ class IntegrationGridOptimizer:
                 force += np.linalg.norm(np.array(line.split())[3:].astype(float))
             else:
                 break
-
+        f_object.seek(0)
         return force/n_atoms
+    
+    @staticmethod
+    def _get_number_of_atoms(f_object: TextIO):
+        """
+        Get the number of atoms from the dump file
+
+        Parameters
+        -----------
+        f_object : TextIO
+                file object from which the number should be read
+
+        Returns
+        -------
+        n_atoms : int
+                Number of atoms in the configuration
+        """
+        pattern = '- Atoms:'
+        n_atoms = None
+        for line in f_object:
+            if re.search(pattern, line):
+                n_atoms = int(line.split()[-1])
+        
+        f_object.seek(0)
+        return n_atoms
 
     def _fetch_properties(self):
         """
@@ -239,7 +260,7 @@ class IntegrationGridOptimizer:
         """
         force_file = self._get_force_file()
         f_object = open(force_file, 'r')
-        n_atoms = int(f_object.readline().split()[0])  # get the number of atoms
+        n_atoms = self._get_number_of_atoms(f_object)
         energy = self._read_energy(f_object=f_object)
         force = self._read_forces(f_object=f_object, n_atoms=n_atoms)
         f_object.close()
@@ -309,6 +330,15 @@ class IntegrationGridOptimizer:
         self._update_property(optimized_parameter)
         self._perform_energy_force_calculation()
         self._update_property_arrays(list(optimized_parameter.keys())[0])
+        self._clean_directory()
+
+    def _clean_directory(self):
+        """
+        Clean the simulation files out of the directory
+        """
+        os.remove(f"{self.cwd}/{self.project_name}.inp")
+        os.remove(f"{self.cwd}/{self.project_name}.out")
+
 
     def _check_progress(self, optimized_parameter: str):
         """
@@ -328,13 +358,16 @@ class IntegrationGridOptimizer:
         """
 
         if len(self.energy_array[optimized_parameter]) < 2:
-            return 0
+            return 1
         else:
             en_diff = np.diff(self.energy_array[optimized_parameter])
             fr_diff = np.diff(self.force_array[optimized_parameter])
 
-            if en_diff[-1] and fr_diff[-1] < self.tolerance:
-                return 0
+            if en_diff[-1] < self.tolerance:
+                if fr_diff[-1] < self.tolerance:
+                    return 0
+                else:
+                    return 1
             else:
                 return 1
 
@@ -357,7 +390,7 @@ class IntegrationGridOptimizer:
             if self._check_progress('Cutoff') == 1:
                 continue
             else:
-                self._update_property({'Cutoff': self.energy_array['Cutoff'][-2]})
+                self._update_property({'Cutoff': self.loop_range['Cutoff'][-2]})
                 break
 
     def _run_rel_cutoff_optimization(self):
@@ -373,7 +406,7 @@ class IntegrationGridOptimizer:
             if self._check_progress('Rel_cutoff') == 1:
                 continue
             else:
-                self._update_property({'Rel_cutoff': self.energy_array['Rel_cutoff'][-2]})
+                self._update_property({'Rel_cutoff': self.loop_range['Rel_cutoff'][-2]})
                 break
 
     def _run_n_grids_optimization(self):
@@ -386,10 +419,10 @@ class IntegrationGridOptimizer:
         """
         for item in self.loop_range['Ngrids']:
             self._perform_loop_operation({'Ngrids': item})
-            if self._check_progress('nNrids') == 1:
+            if self._check_progress('Ngrids') == 1:
                 continue
             else:
-                self._update_property({'Ngrids': self.energy_array['Ngrids'][-2]})
+                self._update_property({'Ngrids': self.loop_range['Ngrids'][-2]})
                 break
 
     def _set_defaults_parameters(self):
@@ -411,13 +444,18 @@ class IntegrationGridOptimizer:
         -------
         Prints output to screen and saves images.
         """
+
+        print(f"Cutoff Value: {self.optimized_cutoff}")
+        print(f"Rel Cutoff Value: {self.optimized_rel_cutoff}")
+        print(f"N grid value: {self.optimized_n_grids}")
+
         for item in self.energy_array:
             print(f"Energy cutoff: {self.energy_array[item]}")
             print(f"Force cutoff: {self.force_array[item]}")
 
-            plt.plot(self.loop_range[:int(len(self.energy_array[item])-1)], self.energy_array[item],
+            plt.plot(self.loop_range[item][:int(len(self.energy_array[item])-1)], self.energy_array[item],
                      'o-', label="Energy convergence")
-            plt.plot(self.loop_range[:int(len(self.force_array[item])-1)], self.force_array[item],
+            plt.plot(self.loop_range[item][:int(len(self.force_array[item])-1)], self.force_array[item],
                      'o-', label="Force convergence")
             plt.xlabel("Cutoff value (Ry)")
             plt.ylabel("Energy and Force Values")
@@ -442,3 +480,4 @@ class IntegrationGridOptimizer:
         self._run_cutoff_optimization()      # optimize the cutoff
         self._run_rel_cutoff_optimization()  # optimize the rel cutoff
         self._run_n_grids_optimization()     # optimize the n grids attribute
+        self._return_results()               # Print the results
