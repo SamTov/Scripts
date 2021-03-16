@@ -390,7 +390,7 @@ class IntegrationGridOptimizer:
                 continue
             else:
                 self._update_property({'Cutoff': self.loop_range['Cutoff'][-2]})
-                self.optimized_cutoff = self.loop_range['cutoff'][-2]
+                self.optimized_cutoff = self.loop_range['Cutoff'][-2]
                 break
 
     def _run_rel_cutoff_optimization(self):
@@ -455,9 +455,9 @@ class IntegrationGridOptimizer:
             print(f"Energy cutoff: {self.energy_array[item]}")
             print(f"Force cutoff: {self.force_array[item]}")
 
-            plt.plot(self.loop_range[item][:int(len(self.energy_array[item])-1)], self.energy_array[item],
+            plt.plot(self.loop_range[item][:int(len(self.energy_array[item]))], self.energy_array[item],
                      'o-', label="Energy convergence")
-            plt.plot(self.loop_range[item][:int(len(self.force_array[item])-1)], self.force_array[item],
+            plt.plot(self.loop_range[item][:int(len(self.force_array[item]))], self.force_array[item],
                      'o-', label="Force convergence")
             plt.xlabel("Cutoff value (Ry)")
             plt.ylabel("Energy and Force Values")
